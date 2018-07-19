@@ -1,7 +1,9 @@
-<h1>Hello, {{ name|capitalize }} !</h1>
+{% extends "base.html" %}
 
-{% if user %}
-    Hello, {{ user }}!
-{% else %}
-    Hello, Stranger!
-{% endif %}
+{% block title %}Flasky{% endblock %}
+
+{% block page_content %}
+<div class="page-header">
+    <h1> Hello, {{ name }}</h1>
+</div>
+{% endblock %}
