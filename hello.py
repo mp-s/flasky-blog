@@ -1,12 +1,15 @@
 from flask import Flask, render_template
 from flask_script import Manager, Server
 from flask_bootstrap import Bootstrap
+from flask_moment import Moment
 
+from datetime import datetime
 
 app = Flask(__name__)
 manager = Manager(app)
 manager.add_command("runserver", Server(use_debugger=True))
 Bootstrap = Bootstrap(app)
+moment = Moment(app)
 
 my_dict = {'key': 'test'}
 
@@ -21,7 +24,7 @@ def internal_server_error(e):
 
 @app.route('/')
 def index():
-    return render_template('index.html', mydict=my_dict)
+    return render_template('index.html', current_time=datetime.utcnow())
 
 
 @app.route('/user/<name>')
