@@ -2,9 +2,10 @@ from flask import render_template, redirect, url_for, flash, abort
 from flask_login import login_required, current_user
 
 from . import main
-from .forms import EditProfileForm
+from .forms import EditProfileForm, EditProfileAdminForm
 from .. import db
 from ..models import User
+from ..decorators import admin_required
 
 @main.route('/')
 def index():
@@ -33,3 +34,28 @@ def edit_profile():
     form.about_me.data = current_user.about_me
 
     return render_template('edit_profile.html', form=form)
+
+@main.route('/edit-profile/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_profile_admin(id):
+    user = User.query.get_or_404(id)
+    form = EditProfileAdminForm(user=user)
+    if form.validate_on_submit():
+        user.emil = form.email.data
+        user.username = form.username.data
+        user.confirmed = form.confirmed.data
+        user.role = form.role.data
+        user.name = form.user.data
+        user.location = form.location.data
+        user.about_me = form.about_me.data
+        db.session.add(user)
+        flash('The profile has been updated.')
+        return redirect(url_for('.user', username=user.username))
+    form.email.data = user.email
+    form.username.data = user.username
+    form.role.data = user.role
+    form.name.data = user.name
+    form.location.data = user.location
+    form.about_me.data = user.about_me
+    return render_template('edit_profile.html', form=form, user=user)
