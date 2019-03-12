@@ -99,8 +99,7 @@ class User(UserMixin, db.Model):
             
             # avatar
             if self.email is not None and self.avatar_hash is None:
-                self.avatar_hash = hashlib.md5(
-                    self.email.encode('utf-8')).hexdigest()
+                self.avatar_hash = self.gravatar_hash()
 
     @property
     def password(self):
@@ -168,7 +167,7 @@ class User(UserMixin, db.Model):
             return False
         self.email = new_email
         # avatar
-        self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        self.avatar_hash = self.gravatar_hash()
         db.session.add(self)
         return True
 
@@ -183,10 +182,13 @@ class User(UserMixin, db.Model):
         self.last_seen = datetime.utcnow()
         db.session.add(self)
 
+    def gravatar_hash(self):
+        return hashlib.md5(self.email.encode('utf-8')).hexdigest()
+
     # gravatar 用v2ex-cdn替换
     def gravatar(self, size=100, default='identicon', rating='g'):
         url = 'https://cdn.v2ex.com/gravatar/'
-        hash = self.avatar_hash or hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        hash = self.avatar_hash or self.gravatar_hash()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
             url=url, hash=hash, size=size, default=default, rating=rating)
 
