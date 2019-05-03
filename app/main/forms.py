@@ -45,5 +45,5 @@ class EditProfileAdminForm(FlaskForm):
             raise ValidationError('username already in use.')
 
 class PostForm(FlaskForm):
-    body = TextAreaField('你现在在想什么', validators=[Required()])
+    body = TextAreaField('你现在在想什么', validators=[DataRequired()])
     submit = SubmitField('Submit')

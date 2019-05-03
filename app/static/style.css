@@ -11,7 +11,7 @@ ul.posts {
     margin: 16px 0px 0px 0px;
     border-top: 1px solid #e0e0e0;
 }
-ul.posts li.posts {
+ul.posts li.post {
     padding: 8px;
     border-bottom: 1px solid #e0e0e0;
 
