@@ -45,7 +45,7 @@ def edit(id):
         db.session.add(post)
         flash('The post has been updated.')
         return redirect(url_for('.post', id=postid))
-    form.body.data = post.data
+    form.body.data = post.body
     return render_template('edit_post.html', form=form)
 
 @main.route('/user/<username>')
