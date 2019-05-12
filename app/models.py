@@ -308,7 +308,7 @@ class Post(db.Model):
                         'h1', 'h2', 'h3', 'p']
         targetm.body_html = bleach.linkify(bleach.clean(
             markdown(value, output_format='html'),
-            tags=allow_tags, strip=True))
+            tags=allowed_tags, strip=True))
 
 class Comment(db.Model):
     __tablename__ = 'comments'
@@ -317,7 +317,7 @@ class Comment(db.Model):
     body_html = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     disabled = db.Column(db.Boolean)
-    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id'))
 
     @staticmethod
