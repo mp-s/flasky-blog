@@ -7,3 +7,4 @@ httpie==1.0.2
 idna==2.8
 requests==2.22.0
 urllib3==1.25.2
+selenium==3.141.0
