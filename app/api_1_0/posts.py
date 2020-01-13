@@ -6,19 +6,22 @@ from . import api
 from .decorators import permission_required
 from .errors import forbidden
 
+
+# 帖子列表
 @api.route('/posts/')
 def get_posta():
     page = request.args.get('page', 1, type=int)
     pagination = Post.query.paginate(
-        page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
+        page,
+        per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
         error_out=False)
     posts = pagination.items
     prev = None
     if pagination.has_prev:
-        prev = url_for('api.get_posta', page=page-1)
+        prev = url_for('api.get_posta', page=page - 1)
     _next = None
     if pagination.has_next:
-        _next = url_for('api.get_posta', page=page+1)
+        _next = url_for('api.get_posta', page=page + 1)
     return jsonify({
         'posts': [post.to_json() for post in posts],
         'prev': prev,
@@ -26,11 +29,15 @@ def get_posta():
         'count': pagination.total
     })
 
+
+# 帖子
 @api.route('/posts/<int:id>')
 def get_post(id):
     post = Post.query.get_or_404(id)
     return jsonify(post.to_json())
 
+
+# 发表帖子
 @api.route('/posts/', methods=['POST'])
 @permission_required(Permission.WRITE_ARTICLES)
 def new_post():
@@ -41,6 +48,8 @@ def new_post():
     return jsonify(post.to_json()), 201, \
         {'Location': url_for('api.get_post', id=post.id)}
 
+
+# 修改帖子
 @api.route('/posts/<int:id>', methods=['PUT'])
 @permission_required(Permission.WRITE_ARTICLES)
 def edit_post(id):

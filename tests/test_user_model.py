@@ -4,35 +4,36 @@ from datetime import datetime
 from app import create_app, db
 from app.models import User, Role, AnonymousUser, Permission, Follow
 
+
 class UserModelTestCase(unittest.TestCase):
     def setUp(self):
         self.app = create_app('testing')
         self.app_context = self.app.app_context()
         self.app_context.push()
         db.create_all()
-    
+
     def tearDown(self):
         db.session.remove()
         db.drop_all()
         self.app_context.pop()
 
     def test_password_setter(self):
-        u = User(password = 'cat')
+        u = User(password='cat')
         self.assertTrue(u.password_hash is not None)
 
     def test_no_password_getter(self):
-        u = User(password = 'acat')
+        u = User(password='acat')
         with self.assertRaises(AttributeError):
             u.password
 
     def test_password_verification(self):
-        u = User(password = 'ccat')
+        u = User(password='ccat')
         self.assertTrue(u.verify_password('ccat'))
         self.assertFalse(u.verify_password('dog'))
 
     def test_password_salt_are_random(self):
-        u = User(password = 'cat')
-        u = User(password = 'cat')
+        u = User(password='cat')
+        u = User(password='cat')
         self.assertTrue(u.password_hash != u2.password_hash)
 
     def test_valid_confirmation_token(self):
@@ -58,7 +59,7 @@ class UserModelTestCase(unittest.TestCase):
         token = u.generate_confirmation_token(1)
         time.sleep(2)
         self.assertFalse(u.confirm(token))
-        
+
     def test_valid_reset_token(self):
         u = User(password='cat')
         db.session.add(u)
@@ -117,7 +118,8 @@ class UserModelTestCase(unittest.TestCase):
         u = User(password='cat')
         db.session.add(u)
         db.session.commit()
-        self.assertTrue((datetime.utcnow() - u.member_since).total_seconds() < 3)
+        self.assertTrue(
+            (datetime.utcnow() - u.member_since).total_seconds() < 3)
         self.assertTrue((datetime.utcnow() - u.last_seen).total_seconds() < 3)
 
     def test_ping(self):
@@ -138,7 +140,7 @@ class UserModelTestCase(unittest.TestCase):
             gravatar_retro = u.gravatar(default='retro')
         self.assertTrue('https://cdn.v2ex.com/gravatar/' +
                         'd4c74594d841139328695756648b6bd6' in gravatar)
-        self.assertTrue('s=256'in gravatar_256)
+        self.assertTrue('s=256' in gravatar_256)
         self.assertTrue('r=pg' in gravatar_pg)
         self.assertTrue('d=retro' in gravatar_retro)
 
@@ -178,14 +180,16 @@ class UserModelTestCase(unittest.TestCase):
         db.session.delete(u2)
         db.session.commit()
         self.assertTrue(Follow.query.count() == 1)
-    
+
     def test_to_json(self):
         u = User(email='john@example.com', password='cat')
         db.session.add(u)
         db.session.commit()
         with self.app.test_request_context('/'):
             json_user = u.to_json()
-        except_keys = ['url', 'username', 'member_since', 'last_seen',
-                       'posts_url', 'followed_posts_url', 'post_count']
+        except_keys = [
+            'url', 'username', 'member_since', 'last_seen', 'posts_url',
+            'followed_posts_url', 'post_count'
+        ]
         self.assertEqual(sorted(json_user.keys()), sorted(except_keys))
         self.assertEqual('/api/v1/users/' + str(u.id), json_user([url]))

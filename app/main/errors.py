@@ -1,6 +1,10 @@
 from flask import render_template, request, jsonify
 from . import main
 
+'''蓝本中编写错误处理程序
+app_errorhandler 作用域: 整个程序
+errorhandler 作用域: 蓝本中
+'''
 @main.app_errorhandler(403)
 def forbidden(e):
     if request.accept_mimetypes.accept_json and \
@@ -10,6 +14,7 @@ def forbidden(e):
         return response
     return render_template('403.html'), 403
 
+
 @main.app_errorhandler(404)
 def page_not_found(e):
     if request.accept_mimetypes.accept_json and \
@@ -18,6 +23,7 @@ def page_not_found(e):
         response.status_code = 404
         return response
     return render_template('404.html'), 404
+
 
 @main.app_errorhandler(500)
 def internal_server_error(e):

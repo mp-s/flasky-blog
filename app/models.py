@@ -12,14 +12,19 @@ from markdown import markdown
 import bleach
 
 
+# 权限Flag
 class Permission:
+    ''' 权限Flag '''
     FOLLOW = 0x01
     COMMENT = 0x02
     WRITE_ARTICLES = 0x04
     MODERATE_COMMENTS = 0x08
     ADMINISTER = 0x80
 
+
+# 用户角色表
 class Role(db.Model):
+    ''' 用户角色表 '''
     __tablename__ = 'roles'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
@@ -35,17 +40,11 @@ class Role(db.Model):
     @staticmethod
     def insert_roles():
         roles = {
-            'User' : (
-                Permission.FOLLOW |
-                Permission.COMMENT |
-                Permission.WRITE_ARTICLES, True
-            ),
-            'Moderator': (
-                Permission.FOLLOW |
-                Permission.COMMENT |
-                Permission.WRITE_ARTICLES |
-                Permission.MODERATE_COMMENTS, False
-            ),
+            'User': (Permission.FOLLOW | Permission.COMMENT
+                     | Permission.WRITE_ARTICLES, True),
+            'Moderator':
+            (Permission.FOLLOW | Permission.COMMENT | Permission.WRITE_ARTICLES
+             | Permission.MODERATE_COMMENTS, False),
             'Administrator': (0xff, False)
         }
         for r in roles:
@@ -60,7 +59,7 @@ class Role(db.Model):
     def add_permission(self, perm):
         if not self.has_permission(perm):
             self.permissions += perm
-    
+
     def remove_permission(self, perm):
         if self.has_permission(perm):
             self.permissions -= perm
@@ -74,15 +73,23 @@ class Role(db.Model):
     def __repr__(self):
         return '<Role %r>' % self.name
 
-class Follow(db.Model):
-    __tablename__ = 'follows'
-    follower_id = db.Column(db.Integer, db.ForeignKey('users.id'),
-                            primary_key=True)
-    followed_id = db.Column(db.Integer, db.ForeignKey('users.id'),
-                            primary_key=True)
-    timestamp= db.Column(db.DateTime, default=datetime.utcnow)
 
+# 关注表
+class Follow(db.Model):
+    ''' 关注表 '''
+    __tablename__ = 'follows'
+    follower_id = db.Column(db.Integer,
+                            db.ForeignKey('users.id'),
+                            primary_key=True)
+    followed_id = db.Column(db.Integer,
+                            db.ForeignKey('users.id'),
+                            primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# 用户表
 class User(UserMixin, db.Model):
+    ''' 用户表 '''
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(64), unique=True, index=True)
@@ -105,13 +112,15 @@ class User(UserMixin, db.Model):
     followed = db.relationship('Follow',
                                foreign_keys=[Follow.follower_id],
                                backref=db.backref('follower', lazy='joined'),
-                               lazy='dynamic', cascade='all, delete-orphan')
+                               lazy='dynamic',
+                               cascade='all, delete-orphan')
     followers = db.relationship('Follow',
                                 foreign_keys=[Follow.followed_id],
                                 backref=db.backref('followed', lazy='joined'),
-                                lazy='dynamic', cascade='all, delete-orphan')
+                                lazy='dynamic',
+                                cascade='all, delete-orphan')
     comments = db.relationship('Comment', backref='author', lazy='dynamic')
-  
+
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
         if self.role is None:
@@ -119,7 +128,7 @@ class User(UserMixin, db.Model):
                 self.role = Role.query.filter_by(permissions=0xff).first()
             if self.role is None:
                 self.role = Role.query.filter_by(default=True).first()
-            
+
             # avatar
             if self.email is not None and self.avatar_hash is None:
                 self.avatar_hash = self.gravatar_hash()
@@ -135,7 +144,7 @@ class User(UserMixin, db.Model):
 
     def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
-    
+
     def generate_confirmation_token(self, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'confirm': self.id})
@@ -172,9 +181,10 @@ class User(UserMixin, db.Model):
 
     def generate_email_change_token(self, new_email, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps(
-            {'change_email': self.id, 'new_email': new_email}
-        ).decode('utf-8')
+        return s.dumps({
+            'change_email': self.id,
+            'new_email': new_email
+        }).decode('utf-8')
 
     def change_email(self, token):
         s = Serializer(current_app.config['SECRET_KEY'])
@@ -198,7 +208,7 @@ class User(UserMixin, db.Model):
     def can(self, permissions):
         return self.role is not None and \
             (self.role.permissions & permissions) == permissions
-    
+
     def is_administrator(self):
         return self.can(Permission.ADMINISTER)
 
@@ -221,7 +231,7 @@ class User(UserMixin, db.Model):
         if not self.is_following(user):
             f = Follow(follower=self, followed=user)
             db.session.add(f)
-    
+
     def unfollow(self, user):
         f = self.followed.filter_by(followed_id=user.id).first()
         if f:
@@ -229,9 +239,10 @@ class User(UserMixin, db.Model):
 
     def is_following(self, user):
         return self.followed.filter_by(followed_id=user.id).first() is not None
-    
+
     def is_followed_by(self, user):
-        return self.followers.filter_by(follower_id=user.id).first() is not None
+        return self.followers.filter_by(
+            follower_id=user.id).first() is not None
 
     @property
     def followed_posts(self):
@@ -270,42 +281,53 @@ class User(UserMixin, db.Model):
 
     def to_json(self):
         json_user = {
-            'url': url_for('api.get_user', id=self.id),
-            'usename': self.username,
-            'member_since': self.member_since,
-            'last_seen': self.last_seen,
-            'posts_url': url_for('api.get_user_posts', id=self.id),
-            'followed_posts_url': url_for('api.get_user_followed_posts',
-                                          id=self.id),
-            'post_count': self.posts.count()
+            'url':
+            url_for('api.get_user', id=self.id),
+            'usename':
+            self.username,
+            'member_since':
+            self.member_since,
+            'last_seen':
+            self.last_seen,
+            'posts_url':
+            url_for('api.get_user_posts', id=self.id),
+            'followed_posts_url':
+            url_for('api.get_user_followed_posts', id=self.id),
+            'post_count':
+            self.posts.count()
         }
         return json_user
 
     def generate_auth_token(self, expiration):
-        s = Serializer(current_app.config['SECRET_KEY'],
-                       expires_in=expiration)
+        s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
         return s.dumps({'id': self.id}).decode('utf-8')
-    
+
     @staticmethod
     def verify_auth_token(token):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
-        except :
+        except:
             return None
         return User.query.get(data['id'])
 
     def __repr__(self):
         return '<User %r>' % self.username
 
+
+# 未登录用户
 class AnonymousUser(AnonymousUserMixin):
+    ''' 未登录用户 '''
     def can(self, permissions):
         return False
-    
+
     def is_administrator(self):
         return False
 
+
+# 帖子表
 class Post(db.Model):
+    ''' 帖子表 '''
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
     body = db.Column(db.Text)
@@ -331,12 +353,14 @@ class Post(db.Model):
 
     @staticmethod
     def on_changed_body(targetm, value, oldvalue, initiator):
-        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
-                        'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
-                        'h1', 'h2', 'h3', 'p']
-        targetm.body_html = bleach.linkify(bleach.clean(
-            markdown(value, output_format='html'),
-            tags=allowed_tags, strip=True))
+        allowed_tags = [
+            'a', 'abbr', 'acronym', 'b', 'blockquote', 'code', 'em', 'i', 'li',
+            'ol', 'pre', 'strong', 'ul', 'h1', 'h2', 'h3', 'p'
+        ]
+        targetm.body_html = bleach.linkify(
+            bleach.clean(markdown(value, output_format='html'),
+                         tags=allowed_tags,
+                         strip=True))
 
     def to_json(self):
         json_post = {
@@ -349,7 +373,7 @@ class Post(db.Model):
             'comment_count': self.comments.count()
         }
         return json_post
-    
+
     @staticmethod
     def from_json(json_post):
         body = json_post.get('body')
@@ -357,7 +381,10 @@ class Post(db.Model):
             raise ValidationError('post does not have a body')
         return Post(body=body)
 
+
+# 评论表
 class Comment(db.Model):
+    ''' 评论表 '''
     __tablename__ = 'comments'
     id = db.Column(db.Integer, primary_key=True)
     body = db.Column(db.Text)
@@ -369,12 +396,14 @@ class Comment(db.Model):
 
     @staticmethod
     def on_changed_body(target, value, oldvalue, initiator):
-        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'code', 'em', 'i',
-                        'strong']
-        target.body_html = bleach.linkify(bleach.clean(
-            markdown(value, output_format='html'),
-            tags=allowed_tags, strip=True))
-    
+        allowed_tags = [
+            'a', 'abbr', 'acronym', 'b', 'code', 'em', 'i', 'strong'
+        ]
+        target.body_html = bleach.linkify(
+            bleach.clean(markdown(value, output_format='html'),
+                         tags=allowed_tags,
+                         strip=True))
+
     def to_json(self):
         json_comment = {
             'url': url_for('api.get_comment', id=self.id),
@@ -393,9 +422,11 @@ class Comment(db.Model):
             raise ValidationError('comment does not have a body')
         return Comment(body=body)
 
+
 db.event.listen(Comment.body, 'set', Comment.on_changed_body)
 db.event.listen(Post.body, 'set', Post.on_changed_body)
 login_manager.anonymous_user = AnonymousUser
+
 
 @login_manager.user_loader
 def load_user(user_id):

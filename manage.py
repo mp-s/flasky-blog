@@ -16,12 +16,21 @@ app = create_app(os.getenv('FLASK_CONFIG') or 'default')
 manager = Manager(app)
 Migrate = Migrate(app, db)
 
+
 def make_shell_context():
-    return dict(app=app, db=db, User=User, Follow=Follow, Role=Role, 
-                Permission=Permission, Post=Post, Comment=Comment)
+    return dict(app=app,
+                db=db,
+                User=User,
+                Follow=Follow,
+                Role=Role,
+                Permission=Permission,
+                Post=Post,
+                Comment=Comment)
+
 
 manager.add_command('shell', Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)
+
 
 @manager.command
 def test(coverage=False):
@@ -44,13 +53,16 @@ def test(coverage=False):
         print('HTML version: file://{}/index.html'.format(covdir))
         COV.erase()
 
+
 @manager.command
 def profile(length=25, profile_dir=None):
     '''Start the application under the code profiler.'''
     from werkzeug.contrib.profiler import ProfilerMiddleware
-    app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[length],
+    app.wsgi_app = ProfilerMiddleware(app.wsgi_app,
+                                      restrictions=[length],
                                       profile_dir=profile_dir)
     app.run()
+
 
 @manager.command
 def deploy():
@@ -63,6 +75,7 @@ def deploy():
     Role.insert_roles()
     # 所有用户关注此用户
     User.add_self_follows()
+
 
 if __name__ == '__main__':
     manager.run()

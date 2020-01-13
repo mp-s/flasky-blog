@@ -6,6 +6,7 @@ from selenium import webdriver
 from app import create_app, db
 from app.models import Role, User, Post
 
+
 class SeleniumTestCase(unittest.TestCase):
     client = None
 
@@ -16,7 +17,7 @@ class SeleniumTestCase(unittest.TestCase):
             cls.client = webdriver.Firefox()
         except:
             pass
-        
+
         # skip test if firefox start failed
         if cls.client:
             # create app
@@ -37,8 +38,11 @@ class SeleniumTestCase(unittest.TestCase):
 
             # add admin user
             admin_role = Role.query.filter_by(permissions=0xff).first()
-            admin = User(email='j@e.c', username='john', password='cat',
-                         role=admin_role, confirmed=True)
+            admin = User(email='j@e.c',
+                         username='john',
+                         password='cat',
+                         role=admin_role,
+                         confirmed=True)
             db.session.add(admin)
             db.session.commit()
 
@@ -68,8 +72,8 @@ class SeleniumTestCase(unittest.TestCase):
     def test_admin_home_page(self):
         # index page
         self.client.get('http://localhost:5000/')
-        self.assertTrue(re.search('Hello,\s+Stranger!',
-                                  self.client.page_source))
+        self.assertTrue(
+            re.search('Hello,\s+Stranger!', self.client.page_source))
 
         # login page
         self.client.find_element_by_link_text('Log In').click()
