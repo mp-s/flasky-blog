@@ -12,6 +12,7 @@
     {% else %}
         Stranger
     {% endif %}!</h1>
+
     {% if not known %}
     <p>Pleased to meet you!</p>
     {% else %}
@@ -24,6 +25,7 @@
     {{ wtf.quick_form(form) }}
     {% endif %}
 </div>
+
 <div class="post-tabs">
     <ul class="nav nav-tabs">
         <li{% if not show_followed %} class="active"{% endif %}>
@@ -35,8 +37,10 @@
         </li>
         {% endif %}
     </ul>
+    
     {% include '_posts.html' %}
 </div>
+
 {% if pagination %}
 <div class="pagination">
     {{ macros.pagination_widget(pagination, '.index') }}
@@ -45,7 +49,7 @@
 
 {% endblock %}
 
-{% block scripts %}
+{% block scripts %} {# flask-pagedown 模板声明 #}
 {{ super() }}
 {{ pagedown.include_pagedown() }}
 {% endblock %}

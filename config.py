@@ -4,11 +4,9 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
     ''' 通常配置 '''
-    # 密钥 web 表单用
+    # 密钥 web 表单用(flask-wtf)
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard to guess string'
 
-    SQLALCHEMY_COMMIT_ON_TEARDOWN = True
-    SQLALCHEMY_TRACK_MODIFICATIONS = True
     # 邮箱
     FLASKY_MAIL_SUBJECT_PREFIX = '[flask demo]'
     FLASKY_MAIL_SENDER = 'Flasky Admin <flasky@example.com>'
@@ -18,8 +16,13 @@ class Config:
     FLASKY_FOLLOWERS_PER_PAGE = 20
     FLASKY_COMMENTS_PER_PAGE = 20
 
+    ''' 如果设置成 True (默认情况)，
+    Flask-SQLAlchemy 将会追踪对象的修改并且发送信号。
+    这需要额外的内存， 如果不必要的可以禁用它。'''
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # 启用缓慢查询记录功能配置
     SQLALCHEMY_RECORD_QUERIES = True
-    FLASKY_DB_QUERY_TIMEOUT = 0.5
+    FLASKY_SLOW_DB_QUERY_TIME = 0.5
 
     @staticmethod
     def init_app(app):
@@ -29,11 +32,14 @@ class Config:
 class DevelopmentConfig(Config):
     ''' 开发环境配置 '''
     DEBUG = True
+
+    # mail config
     MAIL_SERVER = 'smtp.163.com'
     MAIL_PORT = 25
     MAIL_USER_TLS = True
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'data-dev.sqlite')
 
@@ -41,6 +47,7 @@ class DevelopmentConfig(Config):
 class TestConfig(Config):
     ''' 测试环境配置 '''
     TESTING = True
+    # 测试配置禁用 csrf 保护
     WTF_CSRF_ENABLED = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'data-test.sqlite')

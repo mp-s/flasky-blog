@@ -3,6 +3,7 @@ from flask_pagedown.fields import PageDownField
 from wtforms import (StringField, SubmitField, TextAreaField, BooleanField,
                      SelectField, ValidationError)
 from wtforms.validators import DataRequired, Length, Email, Regexp
+from ..models import Role, User
 
 
 # 用户名字
@@ -17,7 +18,7 @@ class EditProfileForm(FlaskForm):
     ''' 资料编辑 '''
     name = StringField('Real name', validators=[Length(0, 64)])
     location = StringField('Location', validators=[Length(0, 64)])
-    about_me = TextAreaField('Aboutn me')
+    about_me = TextAreaField('About me')
     submit = SubmitField('Submit')
 
 
@@ -51,13 +52,13 @@ class EditProfileAdminForm(FlaskForm):
         self.user = user
 
     def validate_email(self, field):
-        if field.data != self.user.email and \
-                User.query.filter_by(email=field.data).first():
+        if (field.data != self.user.email
+                and User.query.filter_by(email=field.data).first()):
             raise ValidationError('Email already registered.')
 
     def validate_username(self, field):
-        if field.data != self.user.username and \
-                User.query.filter_by(username=field.data).first():
+        if (field.data != self.user.username
+                and User.query.filter_by(username=field.data).first()):
             raise ValidationError('username already in use.')
 
 

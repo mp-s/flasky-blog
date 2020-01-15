@@ -13,6 +13,7 @@ from ..emails import send_email
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
+
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         if user is not None and user.verify_password(form.password.data):
@@ -22,6 +23,7 @@ def login():
                 _next = url_for('main.index')
             return redirect(_next)
         flash('Invalid username or password.')
+
     return render_template('auth/login.html', form=form)
 
 
@@ -38,6 +40,7 @@ def logout():
 @auth.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterationForm()
+
     if form.validate_on_submit():
         user = User(email=form.email.data,
                     username=form.username.data,
@@ -52,6 +55,7 @@ def register():
                    token=token)
         flash('A confirmation email has been sent to you by email.')
         return redirect(url_for('main.index'))
+
     return render_template('auth/register.html', form=form)
 
 
@@ -61,21 +65,24 @@ def register():
 def confirm(token):
     if current_user.confirmed:
         return redirect(url_for('main.index'))
+
     if current_user.confirm(token):
+        db.session.commit()
         flash('Your have confirmed your account. Thanks!')
     else:
         flash('The confirmation link is invalid or has expired.')
     return redirect(url_for('main.index'))
 
 
+# before_app_request 应用全局请求钩子
+# 过滤未确认帐户
 @auth.before_app_request
 def before_request():
     if current_user.is_authenticated:
-        current_user.ping()
-        if not current_user.confirmed \
-                and request.endpoint \
-                and request.blueprint != 'auth' \
-                and request.endpoint != 'static':
+        current_user.ping()  # 每次请求更新最后访问时间
+        if (not current_user.confirmed and request.endpoint
+                and request.blueprint != 'auth'
+                and request.endpoint != 'static'):
             return redirect(url_for('auth.unconfirmed'))
 
 
@@ -87,7 +94,7 @@ def unconfirmed():
     return render_template('auth/unconfirmed.html')
 
 
-# 邮箱验证页面
+# 重发邮件验证页面
 @auth.route('/confirm')
 @login_required
 def resend_confirmation():

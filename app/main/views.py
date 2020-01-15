@@ -6,7 +6,7 @@ from flask_sqlalchemy import get_debug_queries
 from . import main
 from .forms import EditProfileForm, EditProfileAdminForm, PostForm, CommentForm
 from .. import db
-from ..models import User, Post, Permission, Comment
+from ..models import User, Post, Permission, Comment, Role
 from ..decorators import admin_required, permission_required
 
 
@@ -14,11 +14,13 @@ from ..decorators import admin_required, permission_required
 @main.route('/', methods=['GET', 'POST'])
 def index():
     form = PostForm()
-    if current_user.can(Permission.WRITE_ARTICLES) and \
-            form.validate_on_submit():
+    if (current_user.can(Permission.WRITE_ARTICLES)
+            and form.validate_on_submit()):
+        # current_user 是轻度包装, 要取真正的用户对象
         post = Post(body=form.body.data,
                     author=current_user._get_current_object())
         db.session.add(post)
+        db.session.commit()
         return redirect(url_for('.index'))
 
     show_followed = False
@@ -29,12 +31,14 @@ def index():
     else:
         query = Post.query
 
+    # 支持分页
     page = request.args.get('page', 1, type=int)
     pagination = query.order_by(Post.timestamp.desc()).paginate(
         page,
         per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
         error_out=False)
     posts = pagination.items
+
     return render_template('index.html',
                            form=form,
                            posts=posts,
@@ -43,21 +47,24 @@ def index():
 
 
 # 发布的贴子
-@main.route('/post/<int:id>', methods=['GET', 'POST'])
-def post(id):
-    post = Post.query.get_or_404(id)
-    form = CommentForm()
+@main.route('/post/<int:postid>', methods=['GET', 'POST'])
+def post(postid):
+    post = Post.query.get_or_404(postid)
+    form = CommentForm()  # 添加评论表单
+
     if form.validate_on_submit():
         comment = Comment(body=form.body.data,
                           post=post,
                           author=current_user._get_current_object())
         db.session.add(comment)
+        db.session.commit()
         flash('Your comment has been published.')
         return redirect(url_for('.post', id=post.id, page=-1))
+
     page = request.args.get('page', 1, type=int)
     if page == -1:
         page = (post.comments.count() -
-                1) / current_app.config['FLASKY_COMMENTS_PER_PAGE'] + 1
+                1) // current_app.config['FLASKY_COMMENTS_PER_PAGE'] + 1
     pagination = post.comments.order_by(Comment.timestamp.asc()).paginate(
         page,
         per_page=current_app.config['FLASKY_COMMENTS_PER_PAGE'],
@@ -71,19 +78,21 @@ def post(id):
 
 
 # 编辑帖子
-@main.route('/edit/<int:id>')
+@main.route('/edit/<int:postid>', methods=['GET', 'POST'])
 @login_required
-def edit(id):
-    post = Post.query.get_or_404(id)
-    if current_user != post.author and \
-            not current_user.can(Permission.ADMINISTER):
+def edit(postid):
+    post = Post.query.get_or_404(postid)
+    if current_user != post.author and not current_user.can(Permission.ADMIN):
         abort(403)
     form = PostForm()
+
     if form.validate_on_submit():
         post.body = form.body.data
         db.session.add(post)
+        db.session.commit()
         flash('The post has been updated.')
         return redirect(url_for('.post', id=postid))
+
     form.body.data = post.body
     return render_template('edit_post.html', form=form)
 
@@ -91,7 +100,7 @@ def edit(id):
 # 用户页面
 @main.route('/user/<username>')
 def user(username):
-    user = User.query.filter_by(username=username).first()
+    user = User.query.filter_by(username=username).first_or_404()
     if user is None:
         abort(404)
     posts = user.posts.order_by(Post.timestamp.desc()).all()
@@ -103,13 +112,16 @@ def user(username):
 @login_required
 def edit_profile():
     form = EditProfileForm()
+
     if form.validate_on_submit():
         current_user.name = form.name.data
         current_user.location = form.location.data
         current_user.about_me = form.about_me.data
-        db.session.add(current_user)
+        db.session.add(current_user._get_current_object())
+        db.session.commit()
         flash('Your profile has been updated.')
         return redirect(url_for('.user', username=current_user.username))
+
     form.name.data = current_user.name
     form.location.data = current_user.location
     form.about_me.data = current_user.about_me
@@ -124,20 +136,23 @@ def edit_profile():
 def edit_profile_admin(id):
     user = User.query.get_or_404(id)
     form = EditProfileAdminForm(user=user)
+
     if form.validate_on_submit():
         user.emil = form.email.data
         user.username = form.username.data
         user.confirmed = form.confirmed.data
-        user.role = form.role.data
+        user.role = Role.query.get(form.role.data)
         user.name = form.user.data
         user.location = form.location.data
         user.about_me = form.about_me.data
         db.session.add(user)
+        db.session.commit()
         flash('The profile has been updated.')
         return redirect(url_for('.user', username=user.username))
+
     form.email.data = user.email
     form.username.data = user.username
-    form.role.data = user.role
+    form.role.data = user.role_id
     form.name.data = user.name
     form.location.data = user.location
     form.about_me.data = user.about_me
@@ -157,6 +172,7 @@ def follow(username):
         flash('you are already following this user.')
         return redirect(url_for('.user', username=username))
     current_user.follow(user)
+    db.session.commit()
     flash('you hare now following {}.'.format(username))
     return redirect(url_for('.user', username=username))
 
@@ -174,6 +190,7 @@ def unfollow(username):
         flash('you are not following this user.')
         return redirect(url_for('.user', username=username))
     current_user.unfollow(user)
+    db.session.commit()
     flash('you hare now unfollow {}.'.format(username))
     return redirect(url_for('.user', username=username))
 
@@ -226,7 +243,7 @@ def followed_by(username):
                            follows=followed)
 
 
-# 显示全部
+# 显示全部文章
 @main.route('/all')
 @login_required
 def show_all():
@@ -235,7 +252,7 @@ def show_all():
     return resp
 
 
-# 显示关注
+# 显示关注用户文章
 @main.route('/followed')
 @login_required
 def show_followed():
@@ -244,7 +261,7 @@ def show_followed():
     return resp
 
 
-#
+# 管理评论
 @main.route('/moderate')
 @login_required
 @permission_required(Permission.MODERATE_COMMENTS)
@@ -261,6 +278,7 @@ def moderate():
                            page=page)
 
 
+# 开启一条评论显示
 @main.route('/moderate/enable/<int:id>')
 @login_required
 @permission_required(Permission.MODERATE_COMMENTS)
@@ -268,10 +286,12 @@ def moderate_enable(id):
     comment = Comment.query.get_or_404(id)
     comment.disabled = False
     db.session.add(comment)
+    db.session.commit()
     return redirect(
         url_for('.moderate', page=request.args.get('page', 1, type=int)))
 
 
+# 禁止一条评论显示
 @main.route('/moderate/disable/<int:id>')
 @login_required
 @permission_required(Permission.MODERATE_COMMENTS)
@@ -279,6 +299,7 @@ def moderate_disable(id):
     comment = Comment.query.get_or_404(id)
     comment.disabled = True
     db.session.add(comment)
+    db.session.commit()
     return redirect(
         url_for('.moderate', page=request.args.get('page', 1, type=int)))
 
@@ -300,6 +321,7 @@ def after_request(response):
     for query in get_debug_queries():
         if query.duration >= current_app.config['FLASKY_SLOW_DB_QUERY_TIME']:
             current_app.logger.warning(
-                f'slow query: {query.statement}\nParameters: {query.parameters}\nDuration {query.duration}\nContext: {query.context}\n'
-            )
+                'slow query: {}\nParameters: {}\nDuration {}\nContext: {}\n'.
+                format(query.statement, query.parameters, query.duration,
+                       query.context))
     return response

@@ -27,6 +27,7 @@ def verify_password(email_or_token, password):
     return user.verify_password(password)
 
 
+# flask-httpauth 错误处理程序
 @auth.error_handler
 def auth_error():
     return unauthorized('Invalid credentials')
@@ -35,8 +36,7 @@ def auth_error():
 @api.before_request
 @auth.login_required
 def before_request():
-    if not g.current_user.is_anonymous and \
-            not g.current_user.confirmed:
+    if not g.current_user.is_anonymous and not g.current_user.confirmed:
         return forbidden('Unconfirmed account')
 
 

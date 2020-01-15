@@ -8,12 +8,13 @@
 {% include '_posts.html' %}
 
 <h4 id='comments'>Comments</h4>
+{# 评论发表 #}
 {% if current_user.can(Permission.COMMENT) %}
     <div class="comment-form">
         {{ wtf.quick_form(form) }}
     </div>
 {% endif %}
-
+{# 评论显示 #}
 {% include '_comments.html' %}
 
 {% if pagination %}

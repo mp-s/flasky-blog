@@ -19,7 +19,7 @@ class Permission:
     COMMENT = 0x02
     WRITE_ARTICLES = 0x04
     MODERATE_COMMENTS = 0x08
-    ADMINISTER = 0x80
+    ADMIN = 0x80
 
 
 # 用户角色表
@@ -40,11 +40,13 @@ class Role(db.Model):
     @staticmethod
     def insert_roles():
         roles = {
-            'User': (Permission.FOLLOW | Permission.COMMENT
+            'User': (Permission.FOLLOW
+                     | Permission.COMMENT
                      | Permission.WRITE_ARTICLES, True),
-            'Moderator':
-            (Permission.FOLLOW | Permission.COMMENT | Permission.WRITE_ARTICLES
-             | Permission.MODERATE_COMMENTS, False),
+            'Moderator': (Permission.FOLLOW
+                          | Permission.COMMENT
+                          | Permission.WRITE_ARTICLES
+                          | Permission.MODERATE_COMMENTS, False),
             'Administrator': (0xff, False)
         }
         for r in roles:
@@ -71,7 +73,7 @@ class Role(db.Model):
         return self.permissions & perm == perm
 
     def __repr__(self):
-        return '<Role %r>' % self.name
+        return '<Role {!r}>'.format(self.name)
 
 
 # 关注表
@@ -132,7 +134,7 @@ class User(UserMixin, db.Model):
             # avatar
             if self.email is not None and self.avatar_hash is None:
                 self.avatar_hash = self.gravatar_hash()
-        self.follow(self)
+        self.follow(self)  # 关注自己, 能看到自己发表的文章
 
     @property
     def password(self):
@@ -205,14 +207,14 @@ class User(UserMixin, db.Model):
         db.session.add(self)
         return True
 
-    def can(self, permissions):
-        return self.role is not None and \
-            (self.role.permissions & permissions) == permissions
+    def can(self, perm):
+        return self.role is not None and self.role.has_permission(perm)
 
     def is_administrator(self):
-        return self.can(Permission.ADMINISTER)
+        return self.can(Permission.ADMIN)
 
     def ping(self):
+        ''' 刷新用户最后访问时间 '''
         self.last_seen = datetime.utcnow()
         db.session.add(self)
 
@@ -220,11 +222,12 @@ class User(UserMixin, db.Model):
         return hashlib.md5(self.email.encode('utf-8')).hexdigest()
 
     # gravatar 用v2ex-cdn替换
+    # TODO: 实现本地上传保存头像
     def gravatar(self, size=100, default='identicon', rating='g'):
         url = 'https://cdn.v2ex.com/gravatar/'
-        hash = self.avatar_hash or self.gravatar_hash()
+        hash_ = self.avatar_hash or self.gravatar_hash()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
-            url=url, hash=hash, size=size, default=default, rating=rating)
+            url=url, hash=hash_, size=size, default=default, rating=rating)
 
     # 关注关系的辅助方法
     def follow(self, user):
@@ -238,9 +241,13 @@ class User(UserMixin, db.Model):
             db.session.delete(f)
 
     def is_following(self, user):
+        if user.id is None:
+            return False
         return self.followed.filter_by(followed_id=user.id).first() is not None
 
     def is_followed_by(self, user):
+        if user.id is None:
+            return False
         return self.followers.filter_by(
             follower_id=user.id).first() is not None
 
@@ -249,6 +256,7 @@ class User(UserMixin, db.Model):
         return Post.query.join(Follow, Follow.followed_id == Post.author_id)\
             .filter(Follow.follower_id == self.id)
 
+    # TODO: Deprecated
     @staticmethod
     def generate_fake(count=50):
         from sqlalchemy.exc import IntegrityError
@@ -271,6 +279,7 @@ class User(UserMixin, db.Model):
         except IntegrityError:
             db.session.rollback()
 
+    # 补救方法, 更新用户的自我关注
     @staticmethod
     def add_self_follows():
         for user in User.query.all():
@@ -283,7 +292,7 @@ class User(UserMixin, db.Model):
         json_user = {
             'url':
             url_for('api.get_user', id=self.id),
-            'usename':
+            'username':
             self.username,
             'member_since':
             self.member_since,
@@ -312,10 +321,10 @@ class User(UserMixin, db.Model):
         return User.query.get(data['id'])
 
     def __repr__(self):
-        return '<User %r>' % self.username
+        return '<User {!r}>'.format(self.username)
 
 
-# 未登录用户
+# 未登录用户, 添加方法免去检查用户是否登录
 class AnonymousUser(AnonymousUserMixin):
     ''' 未登录用户 '''
     def can(self, permissions):
@@ -323,6 +332,9 @@ class AnonymousUser(AnonymousUserMixin):
 
     def is_administrator(self):
         return False
+
+
+login_manager.anonymous_user = AnonymousUser
 
 
 # 帖子表
@@ -336,6 +348,7 @@ class Post(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     comments = db.relationship('Comment', backref='post', lazy='dynamic')
 
+    # TODO: Deprecated
     @staticmethod
     def generate_fake(count=50):
         from random import seed, randint
@@ -351,6 +364,7 @@ class Post(db.Model):
         db.session.add(p)
         db.session.commit()
 
+    # 处理 markdown 文本
     @staticmethod
     def on_changed_body(targetm, value, oldvalue, initiator):
         allowed_tags = [
@@ -380,6 +394,10 @@ class Post(db.Model):
         if body is None or body == '':
             raise ValidationError('post does not have a body')
         return Post(body=body)
+
+
+# 注册监听
+db.event.listen(Post.body, 'set', Post.on_changed_body)
 
 
 # 评论表
@@ -424,10 +442,9 @@ class Comment(db.Model):
 
 
 db.event.listen(Comment.body, 'set', Comment.on_changed_body)
-db.event.listen(Post.body, 'set', Post.on_changed_body)
-login_manager.anonymous_user = AnonymousUser
 
 
+# 加载用户的函数
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))

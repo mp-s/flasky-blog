@@ -11,6 +11,7 @@ class UserModelTestCase(unittest.TestCase):
         self.app_context = self.app.app_context()
         self.app_context.push()
         db.create_all()
+        Role.insert_roles()
 
     def tearDown(self):
         db.session.remove()
@@ -33,7 +34,7 @@ class UserModelTestCase(unittest.TestCase):
 
     def test_password_salt_are_random(self):
         u = User(password='cat')
-        u = User(password='cat')
+        u2 = User(password='cat')
         self.assertTrue(u.password_hash != u2.password_hash)
 
     def test_valid_confirmation_token(self):
@@ -81,7 +82,7 @@ class UserModelTestCase(unittest.TestCase):
         db.session.add(u)
         db.session.commit()
         token = u.generate_email_change_token('susan@example.org')
-        self.assertTrue(User.change_email(token))
+        self.assertTrue(u.change_email(token))
         self.assertTrue(u.email == 'susan@example.org')
 
     def test_invalid_email_change_token(self):
@@ -104,15 +105,39 @@ class UserModelTestCase(unittest.TestCase):
         self.assertFalse(u2.change_email(token))
         self.assertTrue(u2.email == 'susan@example.org')
 
-    def test_roles_and_permissions(self):
-        Role.insert_roles()
+    def test_user_role(self):
         u = User(email='john@example.com', password='cat')
+        self.assertTrue(u.can(Permission.FOLLOW))
+        self.assertTrue(u.can(Permission.COMMENT))
         self.assertTrue(u.can(Permission.WRITE_ARTICLES))
         self.assertFalse(u.can(Permission.MODERATE_COMMENTS))
+        self.assertFalse(u.can(Permission.ADMIN))
+
+    def test_moderator_role(self):
+        r = Role.query.filter_by(name='Moderator').first()
+        u = User(email='test@test.com', password='test', role=r)
+        self.assertTrue(u.can(Permission.FOLLOW))
+        self.assertTrue(u.can(Permission.COMMENT))
+        self.assertTrue(u.can(Permission.WRITE_ARTICLES))
+        self.assertTrue(u.can(Permission.MODERATE_COMMENTS))
+        self.assertFalse(u.can(Permission.ADMIN))
+
+    def test_administrator_role(self):
+        r = Role.query.filter_by(name='Administrator').first()
+        u = User(email='test@test.com', password='test', role=r)
+        self.assertTrue(u.can(Permission.FOLLOW))
+        self.assertTrue(u.can(Permission.COMMENT))
+        self.assertTrue(u.can(Permission.WRITE_ARTICLES))
+        self.assertTrue(u.can(Permission.MODERATE_COMMENTS))
+        self.assertTrue(u.can(Permission.ADMIN))
 
     def test_anonymous_user(self):
         u = AnonymousUser()
         self.assertFalse(u.can(Permission.FOLLOW))
+        self.assertFalse(u.can(Permission.COMMENT))
+        self.assertFalse(u.can(Permission.WRITE_ARTICLES))
+        self.assertFalse(u.can(Permission.MODERATE_COMMENTS))
+        self.assertFalse(u.can(Permission.ADMIN))
 
     def test_timestamps(self):
         u = User(password='cat')
@@ -192,4 +217,4 @@ class UserModelTestCase(unittest.TestCase):
             'followed_posts_url', 'post_count'
         ]
         self.assertEqual(sorted(json_user.keys()), sorted(except_keys))
-        self.assertEqual('/api/v1/users/' + str(u.id), json_user([url]))
+        self.assertEqual('/api/v1/users/' + str(u.id), json_user['url'])

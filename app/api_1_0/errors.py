@@ -2,6 +2,7 @@ from flask import jsonify
 
 from . import api
 from app.exceptions import ValidationError
+''' API blueprint 中其他状态码错误处理辅助函数 '''
 
 
 def forbidden(message):
