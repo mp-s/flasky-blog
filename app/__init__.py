@@ -34,6 +34,11 @@ def create_app(config_name):
     login_manager.init_app(app)
     pagedown.init_app(app)
 
+    # 重定向请求到 https
+    if app.config['SSL_REDIRECT']:
+        from flask_sslify import SSLify
+        sslify = SSLify(app)
+
     # 注册主蓝本
     from .main import main as main_blueprint
     app.register_blueprint(main_blueprint)
