@@ -7,14 +7,23 @@ class Config:
     # 密钥 web 表单用(flask-wtf)
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard to guess string'
 
-    # 邮箱
+    # 邮箱服务器配置
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.googlemail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', '587'))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS',
+                                  'true').lower() in ['true', 'on', '1']
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+
+    # 邮件内容配置
     FLASKY_MAIL_SUBJECT_PREFIX = '[flask demo]'
     FLASKY_MAIL_SENDER = 'Flasky Admin <flasky@example.com>'
     FLASKY_ADMIN = os.environ.get('FLASKY_ADMIN')  # email收件人
+
     # 页面显示数的配置
     FLASKY_POSTS_PER_PAGE = 20
-    FLASKY_FOLLOWERS_PER_PAGE = 20
-    FLASKY_COMMENTS_PER_PAGE = 20
+    FLASKY_FOLLOWERS_PER_PAGE = 50
+    FLASKY_COMMENTS_PER_PAGE = 30
 
     ''' 如果设置成 True (默认情况)，
     Flask-SQLAlchemy 将会追踪对象的修改并且发送信号。
@@ -36,9 +45,7 @@ class DevelopmentConfig(Config):
     # mail config
     MAIL_SERVER = 'smtp.163.com'
     MAIL_PORT = 25
-    MAIL_USER_TLS = True
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_USE_TLS = True
 
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'data-dev.sqlite')
@@ -55,10 +62,11 @@ class TestConfig(Config):
 
 class ProductionConfig(Config):
     ''' 生产环境配置 '''
+
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'data.sqlite')
 
-    @staticmethod
+    @classmethod
     def init_app(cls, app):
         Config.init_app(app)
 

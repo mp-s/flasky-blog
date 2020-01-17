@@ -36,13 +36,20 @@ def make_shell_context():
 @click.option('--coverage/--no-coverage',
               default=False,
               help='Run tests under coverage.')
-def test(coverage=False):
+@click.argument('test_names', nargs=-1)
+def test(coverage, test_names):
     ''' Run the unit tests. '''
     if coverage and not os.environ.get('FLASK_COVERAGE'):
+        import subprocess
         os.environ['FLASK_COVERAGE'] = '1'
-        os.execvp(sys.executable, [sys.executable] + sys.argv)
+        sys.exit(subprocess.call(sys.argv))
+        # os.execvp(sys.executable, [sys.executable] + sys.argv)
+
     import unittest
-    tests = unittest.TestLoader().discover('tests')
+    if test_names:
+        tests = unittest.TestLoader().loadTestsFromNames(test_names)
+    else:
+        tests = unittest.TestLoader().discover('tests')
     unittest.TextTestRunner(verbosity=2).run(tests)
     if COV:
         COV.stop()
@@ -69,7 +76,13 @@ def profile(length, profile_dir):
     app.wsgi_app = ProfilerMiddleware(app.wsgi_app,
                                       restrictions=[length],
                                       profile_dir=profile_dir)
+
+    # flask 1.0 bug: 不能自定义 app.run 启动位置, 解决方案一:
+    os.environ['FLASK_RUN_FROM_CLI'] = "false"
     app.run()
+    # 解决方案二:
+    # from werkzeug.serving import run_simple
+    # run_simple('127.0.0.1', 5000, app, use_debugger=False)
 
 
 @app.cli.command()
@@ -87,4 +100,4 @@ def deploy():
 
 
 # if __name__ == '__main__':
-#     manager.run()
+#     app.run()

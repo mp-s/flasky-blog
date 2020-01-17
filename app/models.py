@@ -66,7 +66,7 @@ class Role(db.Model):
         if self.has_permission(perm):
             self.permissions -= perm
 
-    def reset_permission(self):
+    def reset_permissions(self):
         self.permissions = 0
 
     def has_permission(self, perm):
@@ -149,17 +149,17 @@ class User(UserMixin, db.Model):
 
     def generate_confirmation_token(self, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'confirm': self.id})
+        return s.dumps({'confirm': self.id}).decode('utf-8')
 
     def confirm(self, token):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
-            data = s.loads(token)
+            data = s.loads(token.encode('utf-8'))
         except:
             return False
         if data.get('confirm') != self.id:
             return False
-        self.confirm = True
+        self.confirmed = True
         db.session.add(self)
         return True
 
@@ -219,12 +219,12 @@ class User(UserMixin, db.Model):
         db.session.add(self)
 
     def gravatar_hash(self):
-        return hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        return hashlib.md5(self.email.lower().encode('utf-8')).hexdigest()
 
-    # gravatar 用v2ex-cdn替换
-    # TODO: 实现本地上传保存头像
+    # gravatar 可以用v2ex-cdn替换
+    # TODO: vps 实现本地上传保存头像
     def gravatar(self, size=100, default='identicon', rating='g'):
-        url = 'https://cdn.v2ex.com/gravatar/'
+        url = 'https://secure.gravatar.com/avatar'
         hash_ = self.avatar_hash or self.gravatar_hash()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
             url=url, hash=hash_, size=size, default=default, rating=rating)
@@ -255,29 +255,6 @@ class User(UserMixin, db.Model):
     def followed_posts(self):
         return Post.query.join(Follow, Follow.followed_id == Post.author_id)\
             .filter(Follow.follower_id == self.id)
-
-    # TODO: Deprecated
-    @staticmethod
-    def generate_fake(count=50):
-        from sqlalchemy.exc import IntegrityError
-        from random import seed
-        import forgery_py
-
-        seed()
-        for i in range(count):
-            u = User(email=forgery_py.internet.email_address(),
-                     username=forgery_py.internet.user_name(True),
-                     password=forgery_py.lorem_ipsum.word(),
-                     confirmed=True,
-                     name=forgery_py.name.full_name(),
-                     location=forgery_py.address.city(),
-                     about_me=forgery_py.lorem_ipsum.sentence(),
-                     member_since=forgery_py.date.date(True))
-        db.session.add(u)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
 
     # 补救方法, 更新用户的自我关注
     @staticmethod
@@ -347,22 +324,6 @@ class Post(db.Model):
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     comments = db.relationship('Comment', backref='post', lazy='dynamic')
-
-    # TODO: Deprecated
-    @staticmethod
-    def generate_fake(count=50):
-        from random import seed, randint
-        import forgery_py
-
-        seed()
-        user_count = User.query.count()
-        for i in range(count):
-            u = User.query.offset(randint(0, user_count - 1)).first()
-            p = Post(body=forgery_py.lorem_ipsum.sentences(randint(1, 3)),
-                     timestamp=forgery_py.date.date(True),
-                     author=u)
-        db.session.add(p)
-        db.session.commit()
 
     # 处理 markdown 文本
     @staticmethod
