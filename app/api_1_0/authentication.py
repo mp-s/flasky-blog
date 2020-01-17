@@ -1,5 +1,5 @@
 from flask import g, jsonify
-from flask_login import AnonymousUserMixin
+# from flask_login import AnonymousUserMixin
 from flask_httpauth import HTTPBasicAuth
 from ..models import User
 from . import api
@@ -12,8 +12,10 @@ auth = HTTPBasicAuth()
 @auth.verify_password
 def verify_password(email_or_token, password):
     if email_or_token == '':
-        g.current_user = AnonymousUserMixin()
-        return True
+        # g.current_user = AnonymousUserMixin()
+        # return True
+        # 关掉未登录访问
+        return False
     if password == '':
         g.current_user = User.verify_auth_token(email_or_token)
         g.token_used = True

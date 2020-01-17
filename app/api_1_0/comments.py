@@ -47,12 +47,15 @@ def get_post_comments(id):
         per_page=current_app.config['FLASKY_COMMENTS_PER_PAGE'],
         error_out=False)
     comments = pagination.items
+
     prev = None
     if pagination.has_prev:
         prev = url_for('api.get_post_comments', id=id, page=page - 1)
+
     _next = None
     if pagination.has_next:
         _next = url_for('api.get_post_comments', id=id, page=page + 1)
+
     return jsonify({
         'comments': [comment.to_json() for comment in comments],
         'prev': prev,
@@ -62,7 +65,7 @@ def get_post_comments(id):
 
 
 # 添加该帖子的评论
-@api.route('/posts/<int:id>/comments', methods=['POST'])
+@api.route('/posts/<int:id>/comments/', methods=['POST'])
 @permission_required(Permission.COMMENT)
 def new_post_comment(id):
     post = Post.query.get_or_404(id)

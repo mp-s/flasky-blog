@@ -42,8 +42,10 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(json_response['error'], 'not found')
 
     def test_no_auth(self):
+        # follow redirects
         response = self.client.get('/api/v1/posts',
-                                   content_type='application/json')
+                                   content_type='application/json',
+                                   follow_redirects=True)
         self.assertEqual(response.status_code, 401)
 
     def test_bad_auth(self):
@@ -154,7 +156,7 @@ class APITestCase(unittest.TestCase):
 
         json_post = json_response
         # get the post from the user
-        response = self.client.get(f'/api/v1/users/{u.id}/posts',
+        response = self.client.get(f'/api/v1/users/{u.id}/posts/',
                                    headers=self.get_api_headers(
                                        'john@example.com', 'cat'))
         self.assertEqual(response.status_code, 200)
@@ -162,8 +164,9 @@ class APITestCase(unittest.TestCase):
         self.assertIsNotNone(json_response.get('posts'))
         self.assertEqual(json_response.get('count', 0), 1)
         self.assertEqual(json_response['posts'][0], json_post)
+
         # get the post from the user as a follower
-        response = self.client.get(f'/api/v1/users/{u.id}/timeline',
+        response = self.client.get(f'/api/v1/users/{u.id}/timeline/',
                                    headers=self.get_api_headers(
                                        'john@example.com', 'cat'))
         self.assertEqual(response.status_code, 200)
@@ -186,12 +189,12 @@ class APITestCase(unittest.TestCase):
         # add two users
         r = Role.query.filter_by(name='User').first()
         self.assertIsNotNone(r)
-        u1 = User(email='j@e.c',
+        u1 = User(email='john@example.com',
                   username='john',
                   password='cat',
                   confirmed=True,
                   role=r)
-        u2 = User(email='s@e.c',
+        u2 = User(email='susan@example.com',
                   username='susan',
                   password='dog',
                   confirmed=True,
@@ -202,13 +205,13 @@ class APITestCase(unittest.TestCase):
         # get users
         response = self.client.get(f'/api/v1/users/{u1.id}',
                                    headers=self.get_api_headers(
-                                       'j@e.c', 'cat'))
+                                       'john@example.com', 'cat'))
         self.assertEqual(response.status_code, 200)
         json_response = json.loads(response.get_data(as_text=True))
         self.assertEqual(json_response['username'], 'john')
         response = self.client.get(f'/api/v1/users/{u2.id}',
                                    headers=self.get_api_headers(
-                                       's@e.c', 'dog'))
+                                       'susan@example.com', 'dog'))
         self.assertEqual(response.status_code, 200)
         json_response = json.loads(response.get_data(as_text=True))
         self.assertEqual(json_response['username'], 'susan')
@@ -217,12 +220,12 @@ class APITestCase(unittest.TestCase):
         # add 2 users
         r = Role.query.filter_by(name='User').first()
         self.assertIsNotNone(r)
-        u1 = User(email='j@e.c',
+        u1 = User(email='john@example.com',
                   username='john',
                   password='cat',
                   confirmed=True,
                   role=r)
-        u2 = User(email='s@e.c',
+        u2 = User(email='susan@example.com',
                   username='susan',
                   password='dog',
                   confirmed=True,
@@ -237,9 +240,10 @@ class APITestCase(unittest.TestCase):
 
         # write a comment
         response = self.client.post(
-            f'/api/v1/posts/{post.id}/comments',
-            headers=self.get_api_headers('s@e.c', 'dog'),
-            data=json.dumps({'body': 'Good [post](http://example.com)!'}))
+            '/api/v1/posts/{}/comments/'.format(post.id),
+            headers=self.get_api_headers('susan@example.com', 'dog'),
+            data=json.dumps({'body': 'Good [post](http://example.com)!'}),
+            follow_redirects=True)
         self.assertEqual(response.status_code, 201)
         json_response = json.loads(response.get_data(as_text=True))
         url = response.headers.get('Location')
@@ -252,7 +256,7 @@ class APITestCase(unittest.TestCase):
         # get the new comment
         response = self.client.get(url,
                                    headers=self.get_api_headers(
-                                       'j@e.c', 'cat'))
+                                       'john@example.com', 'cat'))
         self.assertEqual(response.status_code, 200)
         json_response = json.loads(response.get_data(as_text=True))
         self.assertEqual('http://localhost' + json_response['url'], url)
@@ -265,9 +269,10 @@ class APITestCase(unittest.TestCase):
         db.session.commit()
 
         # get the two comments from the post
-        response = self.client.get(f'/api/v1/posts/{post.id}/comments',
-                                   headers=self.get_api_headers(
-                                       's@e.c', 'dog'))
+        # 308 需要 follow redirects 或者加上斜杠
+        response = self.client.get(
+            '/api/v1/posts/{}/comments/'.format(post.id),
+            headers=self.get_api_headers('susan@example.com', 'dog'))
         self.assertEqual(response.status_code, 200)
         json_response = json.loads(response.get_data(as_text=True))
         self.assertIsNotNone(json_response.get('comments'))
@@ -276,7 +281,7 @@ class APITestCase(unittest.TestCase):
         # get all the comments
         response = self.client.get(f'/api/v1/posts/{post.id}/comments/',
                                    headers=self.get_api_headers(
-                                       's@e.c', 'dog'))
+                                       'susan@example.com', 'dog'))
         self.assertEqual(response.status_code, 200)
         json_response = json.loads(response.get_data(as_text=True))
         self.assertIsNotNone(json_response.get('comments'))

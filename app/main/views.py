@@ -47,9 +47,9 @@ def index():
 
 
 # 发布的贴子
-@main.route('/post/<int:postid>', methods=['GET', 'POST'])
-def post(postid):
-    post = Post.query.get_or_404(postid)
+@main.route('/post/<int:id>', methods=['GET', 'POST'])
+def post(id):
+    post = Post.query.get_or_404(id)
     form = CommentForm()  # 添加评论表单
 
     if form.validate_on_submit():
@@ -78,10 +78,10 @@ def post(postid):
 
 
 # 编辑帖子
-@main.route('/edit/<int:postid>', methods=['GET', 'POST'])
+@main.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-def edit(postid):
-    post = Post.query.get_or_404(postid)
+def edit(id):
+    post = Post.query.get_or_404(id)
     if current_user != post.author and not current_user.can(Permission.ADMIN):
         abort(403)
     form = PostForm()
@@ -91,7 +91,7 @@ def edit(postid):
         db.session.add(post)
         db.session.commit()
         flash('The post has been updated.')
-        return redirect(url_for('.post', id=postid))
+        return redirect(url_for('.post', id=id))
 
     form.body.data = post.body
     return render_template('edit_post.html', form=form)
