@@ -1,6 +1,29 @@
-venv
+
+# 虚拟环境
+venv/
+
+# python 编译缓存
 __pycache__
-.vscode
+*.py[cod]
+*$py.class
+
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+
+# Installer logs
+pip-log.txt
+
+# vscode 配置
+# .vscode
+
+# sqlite 数据库
 *.sqlite
-data-dev.sqlite-journal
+*.sqlite-journal
+
+# 临时文件夹
 tmp
+
+# heroku local 配置
+.env
