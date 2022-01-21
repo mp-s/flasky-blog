@@ -8,5 +8,5 @@ requests==2.22.0
 selenium==3.141.0
 urllib3==1.25.7
 flask-shell-ipython==0.4.1
-ipython==7.11.1
+ipython==7.16.3
 faker==4.0.0
